@@ -28,4 +28,3 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "AuthService.dll"]
-RUN apt-get update && apt-get install -y curl

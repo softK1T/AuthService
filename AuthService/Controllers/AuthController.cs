@@ -68,7 +68,6 @@ public class AuthController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send confirmation email to {Email}", user.Email);
-            // Continue with registration even if email fails
         }
 
         return Ok(new
