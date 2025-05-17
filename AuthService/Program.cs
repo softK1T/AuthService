@@ -42,8 +42,7 @@ if (builder.Environment.IsDevelopment())
     });
 }
 
-var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ??
-                       builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
