@@ -1,8 +1,11 @@
 ﻿using AuthService.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using System;
+using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.IdentityModel.Tokens.Jwt;
-using Microsoft.IdentityModel.Tokens;
 
 namespace AuthService.Services
 {
@@ -18,21 +21,21 @@ namespace AuthService.Services
         public string GenerateToken(ApplicationUser user, IList<string> roles)
         {
             var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ??
-                        _configuration["JwtSettings:Key"];
+                         _configuration["JwtSettings:Key"];
             var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ??
-                           _configuration["JwtSettings:Issuer"];
+                            _configuration["JwtSettings:Issuer"];
             var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ??
-                             _configuration["JwtSettings:Audience"];
+                              _configuration["JwtSettings:Audience"];
             var jwtDuration = Environment.GetEnvironmentVariable("JWT_DURATION") ??
-                             _configuration["JwtSettings:DurationInMinutes"] ?? "60";
+                              _configuration["JwtSettings:DurationInMinutes"] ?? "60";
 
             var key = Encoding.ASCII.GetBytes(jwtKey);
 
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
-                new Claim(ClaimTypes.Name, user.UserName),
-                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
+                new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
                 new Claim("FirstName", user.FirstName ?? string.Empty),
                 new Claim("LastName", user.LastName ?? string.Empty),
             };

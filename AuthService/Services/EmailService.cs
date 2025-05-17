@@ -1,8 +1,13 @@
 ﻿using AuthService.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace AuthService.Services
 {
-    public class EmailService: IEmailService
+    public class EmailService : IEmailService
     {
         private readonly IConfiguration _configuration;
         private readonly HttpClient _httpClient;
@@ -14,6 +19,7 @@ namespace AuthService.Services
             _httpClient = httpClient;
             _logger = logger;
         }
+
         public async Task SendConfirmationEmailAsync(string email, string confirmationLink)
         {
             var mailServiceUrl = Environment.GetEnvironmentVariable("MAIL_SERVICE_URL") ??
@@ -26,10 +32,10 @@ namespace AuthService.Services
 
             string htmlBody = $@"
                 <html>
-                <body>
-                    <h2>Thank you for registering!</h2>
-                    <p>Please confirm your account by clicking this link: <a href='{confirmationLink}'>{confirmationLink}</a></p>
-                </body>
+                    <body>
+                        <h2>Thank you for registering!</h2>
+                        <p>Please confirm your account by clicking this link: <a href='{confirmationLink}'>{confirmationLink}</a></p>
+                    </body>
                 </html>";
 
             var mailRequest = new MailRequest
@@ -48,7 +54,6 @@ namespace AuthService.Services
             formContent.Add(new StringContent(mailRequest.Body), "Body");
 
             var response = await _httpClient.PostAsync("/api/Email/send", formContent);
-
             if (!response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();

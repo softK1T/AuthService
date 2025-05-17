@@ -13,50 +13,41 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Configure Swagger for development
-builder.Services.AddSwaggerGen(options =>
+if (builder.Environment.IsDevelopment())
 {
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "Auth Service", Version = "v1" });
-
-    // Add JWT authentication to Swagger
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    builder.Services.AddSwaggerGen(options =>
     {
-        Description = "JWT Authorization header using the Bearer scheme",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+        options.SwaggerDoc("v1", new OpenApiInfo { Title = "Auth Service", Version = "v1" });
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
         {
-            new OpenApiSecurityScheme
+            Description = "JWT Authorization header using the Bearer scheme",
+            Name = "Authorization",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.ApiKey,
+            Scheme = "Bearer"
+        });
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
             {
-                Reference = new OpenApiReference
+                new OpenApiSecurityScheme
                 {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
+                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                },
+                Array.Empty<string>()
+            }
+        });
     });
-});
+}
 
-// Configure database connection
+var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ??
+                       builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-{
-    var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ??
-                          builder.Configuration.GetConnectionString("DefaultConnection");
-    options.UseNpgsql(connectionString);
-});
+    options.UseNpgsql(connectionString));
 
-// Configure Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Password.RequiredLength = 8;
@@ -68,36 +59,39 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-// Configure JWT authentication
-var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-
-
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 }).AddJwtBearer(options =>
 {
+    var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY");
+    var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER");
+    var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+
+    if (string.IsNullOrEmpty(jwtKey) || string.IsNullOrEmpty(jwtIssuer) || string.IsNullOrEmpty(jwtAudience))
+    {
+        throw new InvalidOperationException("JWT configuration is missing environment variables.");
+    }
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("JWT_KEY"))),
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtKey)),
         ValidateIssuer = true,
         ValidateAudience = true,
-        ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER"),
-        ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE"),
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
         ClockSkew = TimeSpan.Zero
     };
 });
 
-// Register services
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddHttpClient<IEmailService, EmailService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -115,7 +109,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Apply database migrations
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -127,13 +120,9 @@ using (var scope = app.Services.CreateScope())
 
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
         if (!await roleManager.RoleExistsAsync("User"))
-        {
             await roleManager.CreateAsync(new IdentityRole("User"));
-        }
         if (!await roleManager.RoleExistsAsync("Admin"))
-        {
             await roleManager.CreateAsync(new IdentityRole("Admin"));
-        }
     }
     catch (Exception ex)
     {
