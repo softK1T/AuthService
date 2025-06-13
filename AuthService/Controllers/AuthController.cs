@@ -150,4 +150,39 @@ public class AuthController : ControllerBase
             Token = token
         });
     }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        await _signInManager.SignOutAsync();
+        _logger.LogInformation("User logged out");
+        return Ok(new { message = "Logged out successfully" });
+    }
+
+    [HttpPost("delete-account")]
+    public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountDto model)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            return NotFound("User not found");
+        }
+
+        var passwordCheck = await _userManager.CheckPasswordAsync(user, model.Password);
+        if (!passwordCheck)
+        {
+            return BadRequest("Invalid password");
+        }
+
+        var result = await _userManager.DeleteAsync(user);
+        if (!result.Succeeded)
+        {
+            return BadRequest(result.Errors);
+        }
+
+        await _signInManager.SignOutAsync();
+        _logger.LogInformation("User {UserId} deleted their account", user.Id);
+        
+        return Ok(new { message = "Account deleted successfully" });
+    }
 }
